@@ -7,7 +7,9 @@ package libwebsocketd
 
 import (
 	"bufio"
+	"fmt"
 	"io"
+	"os"
 	"syscall"
 	"time"
 )
@@ -150,7 +152,7 @@ func (pe *ProcessEndpoint) log_stderr() {
 			}
 			break
 		}
-		pe.log.Error("stderr", "%s", string(trimEOL(buf)))
+		fmt.Fprintf(os.Stderr, "%s\n", string(trimEOL(buf)))
 	}
 }
 
