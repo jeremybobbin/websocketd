@@ -52,7 +52,6 @@ func createEnv(handler *WebsocketdHandler, req *http.Request, log *LogScope) []s
 	env = appendEnv(env, "SERVER_PROTOCOL", req.Proto)
 	env = appendEnv(env, "GATEWAY_INTERFACE", gatewayInterface)
 	env = appendEnv(env, "REQUEST_METHOD", req.Method)
-	env = appendEnv(env, "SCRIPT_NAME", handler.URLInfo.ScriptPath)
 	env = appendEnv(env, "PATH_INFO", handler.URLInfo.PathInfo)
 	env = appendEnv(env, "PATH_TRANSLATED", url.Path)
 	env = appendEnv(env, "QUERY_STRING", url.RawQuery)

@@ -1,12 +1,8 @@
 package libwebsocketd
 
 import (
-	"errors"
-	"fmt"
 	"net"
 	"net/http"
-	"os"
-	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -14,9 +10,7 @@ import (
 	"github.com/gorilla/websocket"
 )
 
-var ScriptNotFoundError = errors.New("script not found")
-
-// WebsocketdHandler is a single request information and processing structure, it handles WS requests out of all that daemon can handle (static, cgi, devconsole)
+// WebsocketdHandler is a single request information and processing structure, it handles WS requests out of all that daemon can handle
 type WebsocketdHandler struct {
 	server *WebsocketdServer
 
@@ -47,9 +41,6 @@ func NewWebsocketdHandler(s *WebsocketdServer, req *http.Request, log *LogScope)
 	}
 
 	wsh.command = s.Config.CommandName
-	if s.Config.UsingScriptDir {
-		wsh.command = wsh.URLInfo.FilePath
-	}
 	log.Associate("command", wsh.command)
 
 	wsh.Env = createEnv(wsh, req, log)
@@ -110,51 +101,13 @@ func GetRemoteInfo(remote string, doLookup bool) (*RemoteInfo, error) {
 
 // URLInfo - structure carrying information about current request and it's mapping to filesystem
 type URLInfo struct {
-	ScriptPath string
 	PathInfo   string
 	FilePath   string
 }
 
 // GetURLInfo is a function that parses path and provides URL info according to libwebsocketd.Config fields
 func GetURLInfo(path string, config *Config) (*URLInfo, error) {
-	if !config.UsingScriptDir {
-		return &URLInfo{"/", path, ""}, nil
-	}
-
-	parts := strings.Split(path[1:], "/")
-	urlInfo := &URLInfo{}
-
-	for i, part := range parts {
-		urlInfo.ScriptPath = strings.Join([]string{urlInfo.ScriptPath, part}, "/")
-		urlInfo.FilePath = filepath.Join(config.ScriptDir, urlInfo.ScriptPath)
-		isLastPart := i == len(parts)-1
-		statInfo, err := os.Stat(urlInfo.FilePath)
-
-		// not a valid path
-		if err != nil {
-			return nil, ScriptNotFoundError
-		}
-
-		// at the end of url but is a dir
-		if isLastPart && statInfo.IsDir() {
-			return nil, ScriptNotFoundError
-		}
-
-		// we've hit a dir, carry on looking
-		if statInfo.IsDir() {
-			continue
-		}
-
-		// no extra args
-		if isLastPart {
-			return urlInfo, nil
-		}
-
-		// build path info from extra parts of url
-		urlInfo.PathInfo = "/" + strings.Join(parts[i+1:], "/")
-		return urlInfo, nil
-	}
-	panic(fmt.Sprintf("GetURLInfo cannot parse path %#v", path))
+	return &URLInfo{path, ""}, nil
 }
 
 func generateId() string {

@@ -47,11 +47,6 @@ Options:
                                  specified, any port number will match.
                                  Default: "" (allow any origin)
 
-  --redirport=PORT               Open alternative port and redirect HTTP traffic
-                                 from it to canonical address (mostly useful
-                                 for HTTPS-only configurations to redirect HTTP
-                                 traffic)
-
   --passenv VAR[,VAR...]         Lists environment variables allowed to be
                                  passed to executed scripts. Does not work for
                                  Windows since all the variables are kept there.
@@ -64,20 +59,11 @@ Options:
   --reverselookup={true,false}   Perform DNS reverse lookups on remote clients.
                                  Default: false
 
-  --dir=DIR                      Allow all scripts in the local directory
-                                 to be accessed as WebSockets. If using this,
-                                 option, then the standard program and args
-                                 options should not be specified.
-
-  --staticdir=DIR                Serve static files in this directory over HTTP.
-
-  --cgidir=DIR                   Serve CGI scripts in this directory over HTTP.
-
   --maxforks=N                   Limit number of processes that websocketd is
-                                 able to execute with WS and CGI handlers.
-                                 When maxforks reached the server will be
-                                 rejecting requests that require executing
-                                 another process (unlimited when 0 or negative).
+                                 able to execute with WS. When maxforks reached
+                                 the server will be rejecting requests that
+                                 require executing another process (unlimited
+                                 when 0 or negative).
                                  Default: 0
 
   --closems=milliseconds         Specifies additional time process needs to gracefully
@@ -88,30 +74,11 @@ Options:
   --header="..."                 Set custom HTTP header to each answer. For
                                  example: --header="Server: someserver/0.0.1"
 
-  --header-ws="...."             Same as --header, just applies to only those
-                                 responses that indicate upgrade of TCP connection
-                                 to a WebSockets protocol.
-
-  --header-http="...."           Same as --header, just applies to only to plain
-                                 HTTP responses that do not indicate WebSockets
-                                 upgrade
-
-
   --help                         Print help and exit.
 
   --version                      Print version and exit.
 
   --license                      Print license and exit.
-
-  --devconsole                   Enable interactive development console.
-                                 This enables you to access the websocketd
-                                 server with a web-browser and use a
-                                 user interface to quickly test WebSocket
-                                 endpoints. For example, to test an
-                                 endpoint at ws://[host]/foo, you can
-                                 visit http://[host]/foo in your browser.
-                                 This flag cannot be used in conjunction
-                                 with --staticdir or --cgidir.
 
   --loglevel=LEVEL               Log level to use (default access).
                                  From most to least verbose:

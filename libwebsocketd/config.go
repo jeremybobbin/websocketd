@@ -11,7 +11,7 @@ import (
 
 type Config struct {
 	// base initiaization fields
-	StartupTime    time.Time // Server startup time (used for dev console caching).
+	StartupTime    time.Time // Server startup time.
 	CommandName    string    // Command to execute.
 	CommandArgs    []string  // Additional args to pass to command.
 	ServerSoftware string    // Value to pass to SERVER_SOFTWARE environment variable (e.g. websocketd/1.2.3).
@@ -22,16 +22,9 @@ type Config struct {
 	// settings
 	Binary         bool     // Use binary communication (send data in chunks they are read from process)
 	ReverseLookup  bool     // Perform reverse DNS lookups on hostnames (useful, but slower).
-	ScriptDir      string   // Base directory for websocket scripts.
-	UsingScriptDir bool     // Are we running with a script dir.
-	StaticDir      string   // If set, static files will be served from this dir over HTTP.
-	CgiDir         string   // If set, CGI scripts will be served from this dir over HTTP.
-	DevConsole     bool     // Enable dev console. This disables StaticDir and CgiDir.
 	AllowOrigins   []string // List of allowed origin addresses for websocket upgrade.
 	SameOrigin     bool     // If set, requires websocket upgrades to be performed from same origin only.
 	Headers        []string
-	HeadersWs      []string
-	HeadersHTTP    []string
 
 	// created environment
 	Env       []string // Additional environment variables to pass to process ("key=value").

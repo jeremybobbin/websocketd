@@ -10,7 +10,6 @@ import (
 	"net/http"
 	"os"
 	"runtime"
-	"strconv"
 	"strings"
 
 	"github.com/joewalnes/websocketd/libwebsocketd"
@@ -40,43 +39,17 @@ func main() {
 
 	log := libwebsocketd.RootLogScope(config.LogLevel, logfunc)
 
-	if config.DevConsole {
-		if config.StaticDir != "" {
-			log.Fatal("server", "Invalid parameters: --devconsole cannot be used with --staticdir. Pick one.")
-			os.Exit(4)
-		}
-		if config.CgiDir != "" {
-			log.Fatal("server", "Invalid parameters: --devconsole cannot be used with --cgidir. Pick one.")
-			os.Exit(4)
-		}
-	}
-
 	if runtime.GOOS != "windows" { // windows relies on env variables to find its libs... e.g. socket stuff
 		os.Clearenv() // it's ok to wipe it clean, we already read env variables from passenv into config
 	}
 	handler := libwebsocketd.NewWebsocketdServer(config.Config, log, config.MaxForks)
 	http.Handle("/", handler)
 
-	if config.UsingScriptDir {
-		log.Info("server", "Serving from directory      : %s", config.ScriptDir)
-	} else if config.CommandName != "" {
-		log.Info("server", "Serving using application   : %s %s", config.CommandName, strings.Join(config.CommandArgs, " "))
-	}
-	if config.StaticDir != "" {
-		log.Info("server", "Serving static content from : %s", config.StaticDir)
-	}
-	if config.CgiDir != "" {
-		log.Info("server", "Serving CGI scripts from    : %s", config.CgiDir)
-	}
+	log.Info("server", "Serving using application   : %s %s", config.CommandName, strings.Join(config.CommandArgs, " "))
 
 	rejects := make(chan error, 1)
 	for _, addrSingle := range config.Addr {
 		log.Info("server", "Starting WebSocket server   : ws://%s/", addrSingle)
-		if config.DevConsole {
-			log.Info("server", "Developer console enabled   : http://%s/", addrSingle)
-		} else if config.StaticDir != "" || config.CgiDir != "" {
-			log.Info("server", "Serving CGI or static files : http://%s/", addrSingle)
-		}
 		// ListenAndServe is blocking function. Let's run it in
 		// go routine, reporting result to control channel.
 		// Since it's blocking it'll never return non-error.
@@ -84,23 +57,6 @@ func main() {
 		go func(addr string) {
 			rejects <- http.ListenAndServe(addr, nil)
 		}(addrSingle)
-
-		if config.RedirPort != 0 {
-			go func(addr string) {
-				pos := strings.IndexByte(addr, ':')
-				rediraddr := addr[:pos] + ":" + strconv.Itoa(config.RedirPort) // it would be silly to optimize this one
-				redir := &http.Server{Addr: rediraddr, Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-
-					// redirect to same hostname as in request but different port and probably schema
-					uri := "http://"
-					uri += r.Host[:strings.IndexByte(r.Host, ':')] + addr[pos:] + "/"
-
-					http.Redirect(w, r, uri, http.StatusMovedPermanently)
-				})}
-				log.Info("server", "Starting redirect server   : http://%s/", rediraddr)
-				rejects <- redir.ListenAndServe()
-			}(addrSingle)
-		}
 	}
 	err := <-rejects
 	if err != nil {

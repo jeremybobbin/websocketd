@@ -10,7 +10,6 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
-	"path/filepath"
 	"runtime"
 	"strings"
 	"time"
@@ -19,10 +18,10 @@ import (
 )
 
 type Config struct {
-	Addr              []string // TCP addresses to listen on. e.g. ":1234", "1.2.3.4:1234" or "[::1]:1234"
-	MaxForks          int      // Number of allowable concurrent forks
-	LogLevel          libwebsocketd.LogLevel
-	RedirPort         int
+	Addr      []string // TCP addresses to listen on. e.g. ":1234", "1.2.3.4:1234" or "[::1]:1234"
+	MaxForks  int      // Number of allowable concurrent forks
+	LogLevel  libwebsocketd.LogLevel
+	RedirPort int
 	*libwebsocketd.Config
 }
 
@@ -74,20 +73,12 @@ func parseCommandLine() *Config {
 	// lib config options
 	binaryFlag := flag.Bool("binary", false, "Set websocketd to experimental binary mode (default is line by line)")
 	reverseLookupFlag := flag.Bool("reverselookup", false, "Perform reverse DNS lookups on remote clients")
-	scriptDirFlag := flag.String("dir", "", "Base directory for WebSocket scripts")
-	staticDirFlag := flag.String("staticdir", "", "Serve static content from this directory over HTTP")
-	cgiDirFlag := flag.String("cgidir", "", "Serve CGI scripts from this directory over HTTP")
-	devConsoleFlag := flag.Bool("devconsole", false, "Enable development console (cannot be used in conjunction with --staticdir)")
 	passEnvFlag := flag.String("passenv", defaultPassEnv[runtime.GOOS], "List of envvars to pass to subprocesses (others will be cleaned out)")
 	sameOriginFlag := flag.Bool("sameorigin", false, "Restrict upgrades if origin and host headers differ")
 	allowOriginsFlag := flag.String("origin", "", "Restrict upgrades if origin does not match the list")
 
 	headers := Arglist(make([]string, 0))
-	headersWs := Arglist(make([]string, 0))
-	headersHttp := Arglist(make([]string, 0))
 	flag.Var(&headers, "header", "Custom headers for any response.")
-	flag.Var(&headersWs, "header-ws", "Custom headers for successful WebSocket upgrade responses.")
-	flag.Var(&headersHttp, "header-http", "Custom headers for all but WebSocket upgrade HTTP responses.")
 
 	err := flag.CommandLine.Parse(os.Args[1:])
 	if err != nil {
@@ -123,16 +114,10 @@ func parseCommandLine() *Config {
 	}
 
 	config.Headers = []string(headers)
-	config.HeadersWs = []string(headersWs)
-	config.HeadersHTTP = []string(headersHttp)
 
 	config.CloseMs = *closeMsFlag
 	config.Binary = *binaryFlag
 	config.ReverseLookup = *reverseLookupFlag
-	config.ScriptDir = *scriptDirFlag
-	config.StaticDir = *staticDirFlag
-	config.CgiDir = *cgiDirFlag
-	config.DevConsole = *devConsoleFlag
 	config.StartupTime = time.Now()
 	config.ServerSoftware = fmt.Sprintf("websocketd/%s", Version())
 	config.HandshakeTimeout = time.Millisecond * 1500 // only default for now
@@ -176,66 +161,19 @@ func parseCommandLine() *Config {
 	config.SameOrigin = *sameOriginFlag
 
 	args := flag.Args()
-	if len(args) < 1 && config.ScriptDir == "" && config.StaticDir == "" && config.CgiDir == "" {
-		fmt.Fprintf(os.Stderr, "Please specify COMMAND or provide --dir, --staticdir or --cgidir argument.\n")
+	if len(args) < 1 {
+		fmt.Fprintf(os.Stderr, "Please specify COMMAND.\n")
 		ShortHelp()
 		os.Exit(1)
 	}
 
-	if len(args) > 0 {
-		if config.ScriptDir != "" {
-			fmt.Fprintf(os.Stderr, "Ambiguous. Provided COMMAND and --dir argument. Please only specify just one.\n")
-			ShortHelp()
-			os.Exit(1)
-		}
-		if path, err := exec.LookPath(args[0]); err == nil {
-			config.CommandName = path // This can be command in PATH that we are able to execute
-			config.CommandArgs = flag.Args()[1:]
-			config.UsingScriptDir = false
-		} else {
-			fmt.Fprintf(os.Stderr, "Unable to locate specified COMMAND '%s' in OS path.\n", args[0])
-			ShortHelp()
-			os.Exit(1)
-		}
-	}
-
-	if config.ScriptDir != "" {
-		scriptDir, err := filepath.Abs(config.ScriptDir)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "Could not resolve absolute path to dir '%s'.\n", config.ScriptDir)
-			ShortHelp()
-			os.Exit(1)
-		}
-		inf, err := os.Stat(scriptDir)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "Could not find your script dir '%s'.\n", config.ScriptDir)
-			ShortHelp()
-			os.Exit(1)
-		}
-		if !inf.IsDir() {
-			fmt.Fprintf(os.Stderr, "Did you mean to specify COMMAND instead of --dir '%s'?\n", config.ScriptDir)
-			ShortHelp()
-			os.Exit(1)
-		} else {
-			config.ScriptDir = scriptDir
-			config.UsingScriptDir = true
-		}
-	}
-
-	if config.CgiDir != "" {
-		if inf, err := os.Stat(config.CgiDir); err != nil || !inf.IsDir() {
-			fmt.Fprintf(os.Stderr, "Your CGI dir '%s' is not pointing to an accessible directory.\n", config.CgiDir)
-			ShortHelp()
-			os.Exit(1)
-		}
-	}
-
-	if config.StaticDir != "" {
-		if inf, err := os.Stat(config.StaticDir); err != nil || !inf.IsDir() {
-			fmt.Fprintf(os.Stderr, "Your static dir '%s' is not pointing to an accessible directory.\n", config.StaticDir)
-			ShortHelp()
-			os.Exit(1)
-		}
+	if path, err := exec.LookPath(args[0]); err == nil {
+		config.CommandName = path // This can be command in PATH that we are able to execute
+		config.CommandArgs = flag.Args()[1:]
+	} else {
+		fmt.Fprintf(os.Stderr, "Unable to locate specified COMMAND '%s' in OS path.\n", args[0])
+		ShortHelp()
+		os.Exit(1)
 	}
 
 	mainConfig.Config = &config

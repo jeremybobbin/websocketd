@@ -10,12 +10,8 @@ import (
 	"fmt"
 	"net"
 	"net/http"
-	"net/http/cgi"
 	"net/textproto"
 	"net/url"
-	"os"
-	"path"
-	"path/filepath"
 	"regexp"
 	"strings"
 
@@ -64,12 +60,12 @@ func pushHeaders(h http.Header, hdrs []string) {
 	}
 }
 
-// ServeHTTP muxes between WebSocket handler, CGI handler, DevConsole, Static HTML or 404.
+// ServeHTTP muxes between WebSocket handler or 404.
 func (h *WebsocketdServer) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	log := h.Log.NewLevel(h.Log.LogFunc)
 	log.Associate("url", "http://" + req.Host + req.RequestURI)
 
-	if h.Config.CommandName != "" || h.Config.UsingScriptDir {
+	if h.Config.CommandName != "" {
 		hdrs := req.Header
 		upgradeRe := regexp.MustCompile(`(?i)(^|[,\s])Upgrade($|[,\s])`)
 		// WebSocket, limited to size of h.forks
@@ -80,23 +76,12 @@ func (h *WebsocketdServer) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 				// start figuring out if we even need to upgrade
 				handler, err := NewWebsocketdHandler(h, req, log)
 				if err != nil {
-					if err == ScriptNotFoundError {
-						log.Access("session", "NOT FOUND: %s", err)
-						http.Error(w, "404 Not Found", 404)
-					} else {
-						log.Access("session", "INTERNAL ERROR: %s", err)
-						http.Error(w, "500 Internal Server Error", 500)
-					}
+					log.Access("session", "INTERNAL ERROR: %s", err)
+					http.Error(w, "500 Internal Server Error", 500)
 					return
 				}
 
-				var headers http.Header
-				if len(h.Config.Headers)+len(h.Config.HeadersWs) > 0 {
-					headers = http.Header(make(map[string][]string))
-					pushHeaders(headers, h.Config.Headers)
-					pushHeaders(headers, h.Config.HeadersWs)
-				}
-
+				var headers = http.Header(make(map[string][]string))
 				upgrader := &websocket.Upgrader{
 					HandshakeTimeout: h.Config.HandshakeTimeout,
 					CheckOrigin: func(r *http.Request) bool {
@@ -122,58 +107,6 @@ func (h *WebsocketdServer) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 			}
 			return
 		}
-	}
-
-	pushHeaders(w.Header(), h.Config.HeadersHTTP)
-
-	// Dev console (if enabled)
-	if h.Config.DevConsole {
-		log.Access("http", "DEVCONSOLE")
-		content := ConsoleContent
-		content = strings.Replace(content, "{{license}}", License, -1)
-		content = strings.Replace(content, "{{addr}}", "ws://" + req.Host + req.RequestURI, -1)
-		http.ServeContent(w, req, ".html", h.Config.StartupTime, strings.NewReader(content))
-		return
-	}
-
-	// CGI scripts, limited to size of h.forks
-	if h.Config.CgiDir != "" {
-		filePath := path.Join(h.Config.CgiDir, fmt.Sprintf(".%s", filepath.FromSlash(req.URL.Path)))
-		if fi, err := os.Stat(filePath); err == nil && !fi.IsDir() {
-
-			log.Associate("cgiscript", filePath)
-			if h.noteForkCreated() == nil {
-				defer h.noteForkCompled()
-
-				// Make variables to supplement cgi... Environ it uses will show empty list.
-				envlen := len(h.Config.ParentEnv)
-				cgienv := make([]string, envlen+1)
-				if envlen > 0 {
-					copy(cgienv, h.Config.ParentEnv)
-				}
-				cgienv[envlen] = "SERVER_SOFTWARE=" + h.Config.ServerSoftware
-				cgiHandler := &cgi.Handler{
-					Path: filePath,
-					Env: []string{
-						"SERVER_SOFTWARE=" + h.Config.ServerSoftware,
-					},
-				}
-				log.Access("http", "CGI")
-				cgiHandler.ServeHTTP(w, req)
-			} else {
-				log.Error("http", "Fork not allowed since maxforks amount has been reached. CGI was not run.")
-				http.Error(w, "429 Too Many Requests", http.StatusTooManyRequests)
-			}
-			return
-		}
-	}
-
-	// Static files
-	if h.Config.StaticDir != "" {
-		handler := http.FileServer(http.Dir(h.Config.StaticDir))
-		log.Access("http", "STATIC")
-		handler.ServeHTTP(w, req)
-		return
 	}
 
 	// 404
