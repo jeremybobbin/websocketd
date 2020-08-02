@@ -2,7 +2,6 @@ package libwebsocketd
 
 import (
 	"bufio"
-	"crypto/tls"
 	"fmt"
 	"net/http"
 	"strings"
@@ -11,7 +10,6 @@ import (
 
 var tellHostPortTests = []struct {
 	src          string
-	ssl          bool
 	server, port string
 }{
 	{"localhost", false, "localhost", "80"},
@@ -22,7 +20,7 @@ var tellHostPortTests = []struct {
 
 func TestTellHostPort(t *testing.T) {
 	for _, testcase := range tellHostPortTests {
-		s, p, e := tellHostPort(testcase.src, testcase.ssl)
+		s, p, e := tellHostPort(testcase.src)
 		if testcase.server == "" {
 			if e == nil {
 				t.Errorf("test case for %#v failed, error was not returned", testcase.src)
@@ -40,8 +38,7 @@ var NoOriginsAllowed = []string{}
 var NoOriginList []string = nil
 
 const (
-	ReqHTTPS = iota
-	ReqHTTP
+	ReqHTTP = iota
 	OriginMustBeSame
 	OriginCouldDiffer
 	ReturnsPass
@@ -50,7 +47,6 @@ const (
 
 var CheckOriginTests = []struct {
 	host    string
-	reqtls  int
 	origin  string
 	same    int
 	allowed []string
@@ -60,8 +56,6 @@ var CheckOriginTests = []struct {
 	{"server.example.com", ReqHTTP, "http://example.com", OriginCouldDiffer, NoOriginList, ReturnsPass, "any origin allowed"},
 	{"server.example.com", ReqHTTP, "http://example.com", OriginMustBeSame, NoOriginList, ReturnsError, "same origin mismatch"},
 	{"server.example.com", ReqHTTP, "http://server.example.com", OriginMustBeSame, NoOriginList, ReturnsPass, "same origin match"},
-	{"server.example.com", ReqHTTP, "https://server.example.com", OriginMustBeSame, NoOriginList, ReturnsError, "same origin schema mismatch 1"},
-	{"server.example.com", ReqHTTPS, "http://server.example.com", OriginMustBeSame, NoOriginList, ReturnsError, "same origin schema mismatch 2"},
 	{"server.example.com", ReqHTTP, "http://example.com", OriginCouldDiffer, NoOriginsAllowed, ReturnsError, "no origins allowed"},
 	{"server.example.com", ReqHTTP, "http://example.com", OriginCouldDiffer, []string{"server.example.com"}, ReturnsError, "no origin allowed matches (junk prefix)"},
 	{"server.example.com", ReqHTTP, "http://example.com", OriginCouldDiffer, []string{"example.com.t"}, ReturnsError, "no origin allowed matches (junk suffix)"},
@@ -101,10 +95,6 @@ Sec-WebSocket-Version: 13
 
 		config := new(Config)
 
-		if testcase.reqtls == ReqHTTPS { // Fake TLS
-			config.Ssl = true
-			req.TLS = &tls.ConnectionState{}
-		}
 		if testcase.same == OriginMustBeSame {
 			config.SameOrigin = true
 		}

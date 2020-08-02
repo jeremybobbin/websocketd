@@ -47,10 +47,6 @@ Options:
                                  specified, any port number will match.
                                  Default: "" (allow any origin)
 
-  --ssl                          Listen for HTTPS socket instead of HTTP.
-  --sslcert=FILE                 All three options must be used or all of
-  --sslkey=FILE                  them should be omitted.
-
   --redirport=PORT               Open alternative port and redirect HTTP traffic
                                  from it to canonical address (mostly useful
                                  for HTTPS-only configurations to redirect HTTP

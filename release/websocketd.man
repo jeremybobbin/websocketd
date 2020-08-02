@@ -39,11 +39,6 @@ Restrict (HTTP 403) protocol upgrades if the Origin header does not match to req
 Restrict (HTTP 403) protocol upgrades if the Origin header does not match to one of the host and port combinations listed. If the port is not specified, any port number will match.  Default: "" (allow any origin)
 .RE
 .PP
-\-\-ssl \-\-sslcert=FILE \-\-sslkey=FILE
-.RS 4
-Listen for HTTPS socket instead of HTTP. All three options must be used or all of them should be omitted.
-.RE
-.PP
 \-\-passenv VAR[,VAR...]
 .RS 4
 Lists environment variables allowed to be passed to executed scripts.

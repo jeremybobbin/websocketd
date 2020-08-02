@@ -23,7 +23,7 @@ func createEnv(handler *WebsocketdHandler, req *http.Request, log *LogScope) []s
 
 	url := req.URL
 
-	serverName, serverPort, err := tellHostPort(req.Host, handler.server.Config.Ssl)
+	serverName, serverPort, err := tellHostPort(req.Host)
 	if err != nil {
 		// This does mean that we cannot detect port from Host: header... Just keep going with "", guessing is bad.
 		log.Debug("env", "Host port detection error: %s", err)
@@ -31,9 +31,6 @@ func createEnv(handler *WebsocketdHandler, req *http.Request, log *LogScope) []s
 	}
 
 	standardEnvCount := 20
-	if handler.server.Config.Ssl {
-		standardEnvCount += 1
-	}
 
 	parentLen := len(handler.server.Config.ParentEnv)
 	env := make([]string, 0, len(headers)+standardEnvCount+parentLen+len(handler.server.Config.Env))
@@ -80,13 +77,6 @@ func createEnv(handler *WebsocketdHandler, req *http.Request, log *LogScope) []s
 	//
 	//   CONTENT_LENGTH, CONTENT_TYPE
 	//     -- makes no sense for WebSocket connections.
-	//
-	//   SSL_*
-	//     -- SSL variables are not supported, HTTPS=on added for websocketd running with --ssl
-
-	if handler.server.Config.Ssl {
-		env = appendEnv(env, "HTTPS", "on")
-	}
 
 	if log.MinLevel == LogDebug {
 		for i, v := range env {

@@ -71,22 +71,18 @@ func main() {
 
 	rejects := make(chan error, 1)
 	for _, addrSingle := range config.Addr {
-		log.Info("server", "Starting WebSocket server   : %s", handler.TellURL("ws", addrSingle, "/"))
+		log.Info("server", "Starting WebSocket server   : ws://%s/", addrSingle)
 		if config.DevConsole {
-			log.Info("server", "Developer console enabled   : %s", handler.TellURL("http", addrSingle, "/"))
+			log.Info("server", "Developer console enabled   : http://%s/", addrSingle)
 		} else if config.StaticDir != "" || config.CgiDir != "" {
-			log.Info("server", "Serving CGI or static files : %s", handler.TellURL("http", addrSingle, "/"))
+			log.Info("server", "Serving CGI or static files : http://%s/", addrSingle)
 		}
 		// ListenAndServe is blocking function. Let's run it in
 		// go routine, reporting result to control channel.
 		// Since it's blocking it'll never return non-error.
 
 		go func(addr string) {
-			if config.Ssl {
-				rejects <- http.ListenAndServeTLS(addr, config.CertFile, config.KeyFile, nil)
-			} else {
-				rejects <- http.ListenAndServe(addr, nil)
-			}
+			rejects <- http.ListenAndServe(addr, nil)
 		}(addrSingle)
 
 		if config.RedirPort != 0 {
@@ -96,10 +92,7 @@ func main() {
 				redir := &http.Server{Addr: rediraddr, Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 
 					// redirect to same hostname as in request but different port and probably schema
-					uri := "https://"
-					if !config.Ssl {
-						uri = "http://"
-					}
+					uri := "http://"
 					uri += r.Host[:strings.IndexByte(r.Host, ':')] + addr[pos:] + "/"
 
 					http.Redirect(w, r, uri, http.StatusMovedPermanently)

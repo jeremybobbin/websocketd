@@ -23,7 +23,6 @@ type Config struct {
 	MaxForks          int      // Number of allowable concurrent forks
 	LogLevel          libwebsocketd.LogLevel
 	RedirPort         int
-	CertFile, KeyFile string
 	*libwebsocketd.Config
 }
 
@@ -68,9 +67,6 @@ func parseCommandLine() *Config {
 	versionFlag := flag.Bool("version", false, "Print version and exit")
 	licenseFlag := flag.Bool("license", false, "Print license and exit")
 	logLevelFlag := flag.String("loglevel", "access", "Log level, one of: debug, trace, access, info, error, fatal")
-	sslFlag := flag.Bool("ssl", false, "Use TLS on listening socket (see also --sslcert and --sslkey)")
-	sslCert := flag.String("sslcert", "", "Should point to certificate PEM file when --ssl is used")
-	sslKey := flag.String("sslkey", "", "Should point to certificate private key file when --ssl is used")
 	maxForksFlag := flag.Int("maxforks", 0, "Max forks, zero means unlimited")
 	closeMsFlag := flag.Uint("closems", 0, "Time to start sending signals (0 never)")
 	redirPortFlag := flag.Int("redirport", 0, "HTTP port to redirect to canonical --port address")
@@ -106,11 +102,7 @@ func parseCommandLine() *Config {
 
 	port := *portFlag
 	if port == 0 {
-		if *sslFlag {
-			port = 443
-		} else {
-			port = 80
-		}
+		port = 80
 	}
 
 	if socknum := len(addrlist); socknum != 0 {
@@ -137,7 +129,6 @@ func parseCommandLine() *Config {
 	config.CloseMs = *closeMsFlag
 	config.Binary = *binaryFlag
 	config.ReverseLookup = *reverseLookupFlag
-	config.Ssl = *sslFlag
 	config.ScriptDir = *scriptDirFlag
 	config.StaticDir = *staticDirFlag
 	config.CgiDir = *cgiDirFlag
@@ -162,22 +153,6 @@ func parseCommandLine() *Config {
 		fmt.Printf("%s\n", libwebsocketd.License)
 		os.Exit(0)
 	}
-
-	// Reading SSL options
-	if config.Ssl {
-		if *sslCert == "" || *sslKey == "" {
-			fmt.Fprintf(os.Stderr, "Please specify both --sslcert and --sslkey when requesting --ssl.\n")
-			os.Exit(1)
-		}
-	} else {
-		if *sslCert != "" || *sslKey != "" {
-			fmt.Fprintf(os.Stderr, "You should not be using --ssl* flags when there is no --ssl option.\n")
-			os.Exit(1)
-		}
-	}
-
-	mainConfig.CertFile = *sslCert
-	mainConfig.KeyFile = *sslKey
 
 	// Building config.ParentEnv to avoid calling Environ all the time in the scripts
 	// (caller is responsible for wiping environment if desired)

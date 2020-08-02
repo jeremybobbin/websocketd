@@ -67,7 +67,7 @@ func pushHeaders(h http.Header, hdrs []string) {
 // ServeHTTP muxes between WebSocket handler, CGI handler, DevConsole, Static HTML or 404.
 func (h *WebsocketdServer) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	log := h.Log.NewLevel(h.Log.LogFunc)
-	log.Associate("url", h.TellURL("http", req.Host, req.RequestURI))
+	log.Associate("url", "http://" + req.Host + req.RequestURI)
 
 	if h.Config.CommandName != "" || h.Config.UsingScriptDir {
 		hdrs := req.Header
@@ -131,7 +131,7 @@ func (h *WebsocketdServer) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		log.Access("http", "DEVCONSOLE")
 		content := ConsoleContent
 		content = strings.Replace(content, "{{license}}", License, -1)
-		content = strings.Replace(content, "{{addr}}", h.TellURL("ws", req.Host, req.RequestURI), -1)
+		content = strings.Replace(content, "{{addr}}", "ws://" + req.Host + req.RequestURI, -1)
 		http.ServeContent(w, req, ".html", h.Config.StartupTime, strings.NewReader(content))
 		return
 	}
@@ -182,24 +182,6 @@ func (h *WebsocketdServer) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 }
 
 var canonicalHostname string
-
-// TellURL is a helper function that changes http to https or ws to wss in case if SSL is used
-func (h *WebsocketdServer) TellURL(scheme, host, path string) string {
-	if len(host) > 0 && host[0] == ':' {
-		if canonicalHostname == "" {
-			var err error
-			canonicalHostname, err = os.Hostname()
-			if err != nil {
-				canonicalHostname = "UNKNOWN"
-			}
-		}
-		host = canonicalHostname + host
-	}
-	if h.Config.Ssl {
-		return scheme + "s://" + host + path
-	}
-	return scheme + "://" + host + path
-}
 
 func (h *WebsocketdServer) noteForkCreated() error {
 	// note that forks can be nil since the construct could've been created by
@@ -257,13 +239,13 @@ func checkOrigin(req *http.Request, config *Config, log *LogScope) (err error) {
 
 	// If some origin restrictions are present:
 	if config.SameOrigin || config.AllowOrigins != nil {
-		originServer, originPort, err := tellHostPort(originParsed.Host, originParsed.Scheme == "https")
+		originServer, originPort, err := tellHostPort(originParsed.Host)
 		if err != nil {
 			log.Access("session", "Origin hostname parsing error: %s", err)
 			return err
 		}
 		if config.SameOrigin {
-			localServer, localPort, err := tellHostPort(req.Host, req.TLS != nil)
+			localServer, localPort, err := tellHostPort(req.Host)
 			if err != nil {
 				log.Access("session", "Request hostname parsing error: %s", err)
 				return err
@@ -287,7 +269,7 @@ func checkOrigin(req *http.Request, config *Config, log *LogScope) (err error) {
 					}
 					allowed = allowed[pos+3:]
 				}
-				allowServer, allowPort, err := tellHostPort(allowed, false)
+				allowServer, allowPort, err := tellHostPort(allowed)
 				if err != nil {
 					continue // unparseable
 				}
@@ -311,16 +293,12 @@ func checkOrigin(req *http.Request, config *Config, log *LogScope) (err error) {
 	return nil
 }
 
-func tellHostPort(host string, ssl bool) (server, port string, err error) {
+func tellHostPort(host string) (server, port string, err error) {
 	server, port, err = net.SplitHostPort(host)
 	if err != nil {
 		if addrerr, ok := err.(*net.AddrError); ok && strings.Contains(addrerr.Err, "missing port") {
 			server = host
-			if ssl {
-				port = "443"
-			} else {
-				port = "80"
-			}
+			port = "80"
 			err = nil
 		}
 	}
